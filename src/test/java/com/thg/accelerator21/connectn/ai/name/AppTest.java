@@ -1,5 +1,9 @@
 package com.thg.accelerator21.connectn.ai.name;
 
+import com.thehutgroup.accelerator.connectn.player.Board;
+import com.thehutgroup.accelerator.connectn.player.Counter;
+import com.thehutgroup.accelerator.connectn.player.GameConfig;
+import com.thg.accelerator23.connectn.ai.disrespectn.DisrespectN;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,6 +17,8 @@ public class AppTest {
    */
   @Test
   public void shouldAnswerWithTrue() {
-    assertTrue(true);
+    DisrespectN p = new DisrespectN(Counter.X);
+    GameConfig conf = new GameConfig(10, 8, 4);
+    assertTrue( p.makeMove(new Board(conf)) == 4);
   }
 }
