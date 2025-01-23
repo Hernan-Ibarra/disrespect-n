@@ -2,31 +2,61 @@ package com.thg.accelerator23.connectn.ai.disrespectn;
 
 import com.thehutgroup.accelerator.connectn.player.Board;
 import com.thehutgroup.accelerator.connectn.player.Counter;
+import com.thehutgroup.accelerator.connectn.player.GameConfig;
 import com.thehutgroup.accelerator.connectn.player.InvalidMoveException;
 import com.thehutgroup.accelerator.connectn.player.Position;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class GameState {
   private final Board board;
   private final ArrayList<Integer> moveList;
-  private final int numberOfTwoInARow;
-  private final int numberOfThreeInARow;
-  private final int numberOfFourInARow;
+  private Map<Integer, Integer> numberOfNInALineX;
+  private Map<Integer, Integer> numberOfNInALineO;
   private final Counter nextCounter;
 
   public GameState(
       Board board,
       ArrayList<Integer> moveList,
-      int numberOfTwoInARow,
-      int numberOfThreeInARow,
-      int numberOfFourInARow,
+      Map<Integer, Integer> numberOfNInALineX,
+      Map<Integer, Integer> numberOfNInALineO,
       Counter nextCounter) {
     this.board = board;
     this.moveList = moveList;
-    this.numberOfTwoInARow = numberOfTwoInARow;
-    this.numberOfThreeInARow = numberOfThreeInARow;
-    this.numberOfFourInARow = numberOfFourInARow;
+    this.numberOfNInALineX = numberOfNInALineX;
+    this.numberOfNInALineO = numberOfNInALineO;
     this.nextCounter = nextCounter;
+  }
+
+  private static GameConfig defaultConfig = new GameConfig(10, 8, 4);
+  private static Board emptyBoard = new Board(defaultConfig);
+  private static ArrayList<Integer> emptyMoveList = new ArrayList<>();
+  private static Map<Integer, Integer> defaultNumberOfNInALineX =
+      new HashMap<>() {
+        {
+          put(2, 0);
+          put(3, 0);
+          put(4, 0);
+        }
+      };
+  private static Map<Integer, Integer> defaultNumberOfNInALineO =
+      new HashMap<>() {
+        {
+          put(2, 0);
+          put(3, 0);
+          put(4, 0);
+        }
+      };
+  private static Counter startingCounter = Counter.O;
+
+  public GameState() {
+    this(
+        emptyBoard,
+        emptyMoveList,
+        defaultNumberOfNInALineX,
+        defaultNumberOfNInALineO,
+        startingCounter);
   }
 
   public Board getBoard() {
@@ -37,52 +67,56 @@ public class GameState {
     return moveList;
   }
 
-  public int getNumberOfTwoInARow() {
-    return numberOfTwoInARow;
-  }
-
-  public int getNumberOfThreeInARow() {
-    return numberOfThreeInARow;
-  }
-
-  public int getNumberOfFourInARow() {
-    return numberOfFourInARow;
-  }
-
   public Counter getNextCounter() {
     return nextCounter;
   }
 
+  public Map<Integer, Integer> getNumberOfNinALineByCounter(Counter counter) {
+    switch (counter) {
+      case X:
+        return numberOfNInALineX;
+      case O:
+        return numberOfNInALineO;
+      default:
+        throw new RuntimeException("Counter is not X or O");
+    }
+  }
+
   public GameState stateWithAdditionalMove(int move) throws InvalidMoveException {
+
+    Board newBoard = new Board(board, move, nextCounter);
 
     ArrayList<Integer> newMoveList = new ArrayList<>(moveList);
     newMoveList.add(move);
 
-    Board newBoard = new Board(board, move, nextCounter);
-
-    int newNumberOfTwoInARow = updateNumberOfNInARow(2, numberOfTwoInARow, move);
-    int newNumberOfThreeInARow = updateNumberOfNInARow(3, numberOfThreeInARow, move);
-    int newNumberOfFourInARow = updateNumberOfNInARow(4, numberOfFourInARow, move);
+    Map<Integer, Integer> newNumberOfNInALineX =
+        updateNumberOfNInALine(numberOfNInALineX, move, Counter.X);
+    Map<Integer, Integer> newNumberOfNInALineO =
+        updateNumberOfNInALine(numberOfNInALineO, move, Counter.O);
 
     return new GameState(
-        newBoard,
-        newMoveList,
-        newNumberOfTwoInARow,
-        newNumberOfThreeInARow,
-        newNumberOfFourInARow,
-        nextCounter.getOther());
+        newBoard, newMoveList, newNumberOfNInALineX, newNumberOfNInALineO, nextCounter.getOther());
   }
 
-  private int updateNumberOfNInARow(int n, int numberOfNInARow, int move) {
+  private Map<Integer, Integer> updateNumberOfNInALine(
+      Map<Integer, Integer> numberOfNInALine, int move, Counter counter) {
 
     Position movePosition = getMovePosition(move);
 
-    numberOfNInARow += countNInLineAtPosition(n, 0, 1, movePosition, nextCounter);
-    numberOfNInARow += countNInLineAtPosition(n, 1, 0, movePosition, nextCounter);
-    numberOfNInARow += countNInLineAtPosition(n, 1, 1, movePosition, nextCounter);
-    numberOfNInARow += countNInLineAtPosition(n, 1, -1, movePosition, nextCounter);
+    Map<Integer, Integer> newNumberOfNInALine = new HashMap<>(numberOfNInALine);
 
-    return numberOfNInARow;
+    for (int i = 2; i <= 4; i++) {
+      int count = newNumberOfNInALine.getOrDefault(i, 0);
+
+      count += countNInLineAtPosition(i, 0, 1, movePosition, counter);
+      count += countNInLineAtPosition(i, 1, 0, movePosition, counter);
+      count += countNInLineAtPosition(i, 1, 1, movePosition, counter);
+      count += countNInLineAtPosition(i, 1, -1, movePosition, counter);
+
+      newNumberOfNInALine.put(i, count);
+    }
+
+    return newNumberOfNInALine;
   }
 
   // Adapted from Board method getMinVacantY
@@ -98,36 +132,51 @@ public class GameState {
   private int countNInLineAtPosition(
       int n, int stepX, int stepY, Position coordinate, Counter counter) {
 
-    int numberOfCountersFoundInLine = 1;
-
+    int numberOfCountersFoundInDirectionOne = 0;
     Position currentPosition = new Position(coordinate.getX(), coordinate.getY());
     while (true) {
-      currentPosition = new Position(currentPosition.getX() + stepX, currentPosition.getY() + stepY);
+      currentPosition =
+          new Position(currentPosition.getX() + stepX, currentPosition.getY() + stepY);
       Counter counterAtCurrentPosition = board.getCounterAtPosition(currentPosition);
 
-      if (counterAtCurrentPosition == counter.getOther() || counterAtCurrentPosition == null) {
-        break;
+      if (counterAtCurrentPosition == counter) {
+        ++numberOfCountersFoundInDirectionOne;
       } else {
-        ++numberOfCountersFoundInLine;
+        break;
       }
     }
 
+    int numberOfCountersFoundInDirectionTwo = 0;
     currentPosition = new Position(coordinate.getX(), coordinate.getY());
     while (true) {
-      currentPosition = new Position(currentPosition.getX() - stepX, currentPosition.getY() - stepY);
+      currentPosition =
+          new Position(currentPosition.getX() - stepX, currentPosition.getY() - stepY);
       Counter counterAtCurrentPosition = board.getCounterAtPosition(currentPosition);
 
-      if (counterAtCurrentPosition == counter.getOther() || counterAtCurrentPosition == null) {
-        break;
+      if (counterAtCurrentPosition == counter) {
+        ++numberOfCountersFoundInDirectionTwo;
       } else {
-        ++numberOfCountersFoundInLine;
+        break;
       }
     }
 
-    if (numberOfCountersFoundInLine < n) {
+    // I apologise for the rest of this code. This is the mathematician in me trying
+    // to code.
+    int p = numberOfCountersFoundInDirectionOne;
+    int q = numberOfCountersFoundInDirectionTwo;
+
+    if (p + q < n - 1) {
       return 0;
+    } else if (q <= n - 1 && p <= n - 1) {
+      return p + q - n + 2;
+    } else if (p <= n - 1) {
+      return p + 1;
+    } else if (q <= n - 1) {
+      return q + 1;
+    } else if (p >= n && q >= n) {
+      return n;
     } else {
-      return numberOfCountersFoundInLine - n + 1;
+      throw new RuntimeException("Something went wrong when counting counters.");
     }
   }
 }
