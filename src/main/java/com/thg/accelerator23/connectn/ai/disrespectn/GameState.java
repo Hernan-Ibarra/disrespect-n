@@ -29,10 +29,10 @@ public class GameState {
     this.nextCounter = nextCounter;
   }
 
-  private static GameConfig defaultConfig = new GameConfig(10, 8, 4);
-  private static Board emptyBoard = new Board(defaultConfig);
-  private static ArrayList<Integer> emptyMoveList = new ArrayList<>();
-  private static Map<Integer, Integer> defaultNumberOfNInALineX =
+  private static final GameConfig defaultConfig = new GameConfig(10, 8, 4);
+  private static final Board emptyBoard = new Board(defaultConfig);
+  private static final ArrayList<Integer> emptyMoveList = new ArrayList<>();
+  private static final Map<Integer, Integer> defaultNumberOfNInALineX =
       new HashMap<>() {
         {
           put(2, 0);
@@ -40,7 +40,7 @@ public class GameState {
           put(4, 0);
         }
       };
-  private static Map<Integer, Integer> defaultNumberOfNInALineO =
+  private static final Map<Integer, Integer> defaultNumberOfNInALineO =
       new HashMap<>() {
         {
           put(2, 0);
@@ -48,7 +48,7 @@ public class GameState {
           put(4, 0);
         }
       };
-  private static Counter startingCounter = Counter.O;
+  private static final Counter startingCounter = Counter.O;
 
   public GameState() {
     this(
@@ -57,6 +57,18 @@ public class GameState {
         defaultNumberOfNInALineX,
         defaultNumberOfNInALineO,
         startingCounter);
+  }
+
+  public GameState(ArrayList<Integer> moveList) throws InvalidMoveException {
+    GameState currentState = new GameState();
+    for (int move : moveList) {
+      currentState = currentState.stateWithAdditionalMove(move);
+    }
+    this.board = currentState.getBoard();
+    this.moveList = moveList;
+    this.numberOfNInALineX = currentState.getNumberOfNinALineByCounter(Counter.X);
+    this.numberOfNInALineO = currentState.getNumberOfNinALineByCounter(Counter.O);
+    this.nextCounter = currentState.getNextCounter();
   }
 
   public Board getBoard() {
@@ -83,16 +95,23 @@ public class GameState {
   }
 
   public GameState stateWithAdditionalMove(int move) throws InvalidMoveException {
-
     Board newBoard = new Board(board, move, nextCounter);
-
     ArrayList<Integer> newMoveList = new ArrayList<>(moveList);
     newMoveList.add(move);
 
-    Map<Integer, Integer> newNumberOfNInALineX =
-        updateNumberOfNInALine(numberOfNInALineX, move, Counter.X);
-    Map<Integer, Integer> newNumberOfNInALineO =
-        updateNumberOfNInALine(numberOfNInALineO, move, Counter.O);
+    Map<Integer, Integer> newNumberOfNInALineX = numberOfNInALineX;
+    Map<Integer, Integer> newNumberOfNInALineO = numberOfNInALineO;
+
+    switch (nextCounter) {
+      case X:
+        newNumberOfNInALineX = updateNumberOfNInALine(numberOfNInALineX, move, Counter.X);
+        break;
+      case O:
+        newNumberOfNInALineO = updateNumberOfNInALine(numberOfNInALineO, move, Counter.O);
+        break;
+      default:
+        break;
+    }
 
     return new GameState(
         newBoard, newMoveList, newNumberOfNInALineX, newNumberOfNInALineO, nextCounter.getOther());
